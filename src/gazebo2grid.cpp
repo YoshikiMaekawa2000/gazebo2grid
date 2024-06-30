@@ -34,36 +34,51 @@ void Gazebo2Grid::add_object_to_grid(tinyxml2::XMLElement *box, tinyxml2::XMLEle
 {
     // // Get the size of the box
     double size_x, size_y, size_z;
-    const char* sizeText = box->FirstChildElement("size")->GetText();
-    std::istringstream sizeStream(sizeText);    //split the string into a string stream
+    const char *sizeText = box->FirstChildElement("size")->GetText();
+    std::istringstream sizeStream(sizeText); // split the string into a string stream
     sizeStream >> size_x >> size_y >> size_z;
-    std::cout << typeid(size_x).name() << std::endl;
-    std::cout << "size_x: " << size_x << " size_y: " << size_y << " size_z: " << size_z << std::endl;
-    
+
     // Get the pose of the box
     double x, y, z, roll, pitch, yaw;
-    const char* poseText = pose->GetText();
-    std::istringstream poseStream(poseText);    //split the string into a string stream
+    const char *poseText = pose->GetText();
+    std::istringstream poseStream(poseText); // split the string into a string stream
     poseStream >> x >> y >> z >> roll >> pitch >> yaw;
-    std::cout << "x: " << x << " y: " << y << " z: " << z << " roll: " << roll << " pitch: " << pitch << " yaw: " << yaw << std::endl;
+    // calculate box vertices
+    double x1 = x + size_x / 2 * cos(yaw) + size_y / 2 * sin(yaw);
+    double y1 = y + size_x / 2 * sin(yaw) + size_y / 2 * cos(yaw);
+    double x2 = x - size_x / 2 * cos(yaw) + size_y / 2 * sin(yaw);
+    double y2 = y - size_x / 2 * sin(yaw) + size_y / 2 * cos(yaw);
+    double x3 = x - size_x / 2 * cos(yaw) - size_y / 2 * sin(yaw);
+    double y3 = y - size_x / 2 * sin(yaw) - size_y / 2 * cos(yaw);
+    double x4 = x + size_x / 2 * cos(yaw) - size_y / 2 * sin(yaw);
+    double y4 = y + size_x / 2 * sin(yaw) - size_y / 2 * cos(yaw);
 
-    // Convert the pose to the grid coordinates
-    int x_min = (x - size_x / 2 - grid.info.origin.position.x) / grid.info.resolution;
-    int x_max = (x + size_x / 2 - grid.info.origin.position.x) / grid.info.resolution;
-    int y_min = (y - size_y / 2 - grid.info.origin.position.y) / grid.info.resolution;
-    int y_max = (y + size_y / 2 - grid.info.origin.position.y) / grid.info.resolution;
-    std::cout << "x_min: " << x_min << " x_max: " << x_max << " y_min: " << y_min << " y_max: " << y_max << std::endl;
-    if(x_min < 0) x_min = 0;
-    if(x_max > grid.info.width) x_max = grid.info.width;
-    if(y_min < 0) y_min = 0;
-    if(y_max > grid.info.height) y_max = grid.info.height;
+    // calculate occupied cells
+    int x1_cell = (x1 - grid.info.origin.position.x) / grid.info.resolution;
+    int y1_cell = (y1 - grid.info.origin.position.y) / grid.info.resolution;
+    int x2_cell = (x2 - grid.info.origin.position.x) / grid.info.resolution;
+    int y2_cell = (y2 - grid.info.origin.position.y) / grid.info.resolution;
+    int x3_cell = (x3 - grid.info.origin.position.x) / grid.info.resolution;
+    int y3_cell = (y3 - grid.info.origin.position.y) / grid.info.resolution;
+    int x4_cell = (x4 - grid.info.origin.position.x) / grid.info.resolution;
+    int y4_cell = (y4 - grid.info.origin.position.y) / grid.info.resolution;
 
-    // Update the grid
-    for (int i = x_min; i < x_max; i++)
+    
+
+    // fill the cells
+    for (int i = std::min(x1_cell, std::min(x2_cell, std::min(x3_cell, x4_cell)));
+        i < std::max(x1_cell, std::max(x2_cell, std::max(x3_cell, x4_cell))); i++)
     {
-        for (int j = y_min; j < y_max; j++)
+        for (int j = std::min(y1_cell, std::min(y2_cell, std::min(y3_cell, y4_cell)));
+            j < std::max(y1_cell, std::max(y2_cell, std::max(y3_cell, y4_cell))); j++)
         {
-            grid.data[i + j * grid.info.width] = 100;
+            if (i >= 0 && i < grid.info.width && j >= 0 && j < grid.info.height)
+            {
+                if(j * grid.info.width + i < grid.data.size()){
+                    grid.data[j * grid.info.width + i] = 100;
+                }
+                grid.data[j * grid.info.width + i] = 100;
+            }
         }
     }
 }
@@ -85,10 +100,7 @@ void Gazebo2Grid::load_world(std::string file_path)
         while(link !=NULL){
             const char* link_name = link->Attribute("name");
             // std::cout << "link_name: " << link_name << std::endl;
-            
-            // if(strcmp(link_name, "Wall_85") == 0 || strcmp(link_name, "Wall_86") == 0 || strcmp(link_name, "Wall_83")==0){
-            // if(strcmp(link_name, "Wall_85") == 0){
-                // std::cout << "Wall_85" << std::endl;
+            if(strstr(link_name, "Wall") != NULL){
                 tinyxml2::XMLElement *visual = link->FirstChildElement("visual");
                 while(visual != NULL){
                     tinyxml2::XMLElement *geometry = visual->FirstChildElement("geometry");
@@ -99,7 +111,7 @@ void Gazebo2Grid::load_world(std::string file_path)
                     }
                     visual = visual->NextSiblingElement("visual");
                 }
-            // }
+            }
             link = link->NextSiblingElement("link");
         }
 
@@ -112,69 +124,6 @@ void Gazebo2Grid::load_world(std::string file_path)
 }
 #endif
 
-#if 0
-void Gazebo2Grid::load_world(std::string file_path)
-{
-    // Load the world
-    tinyxml2::XMLDocument doc;
-    doc.LoadFile(file_path.c_str());
-    tinyxml2::XMLElement *sdf = doc.FirstChildElement("sdf");
-    tinyxml2::XMLElement *world = sdf->FirstChildElement("world");
-    tinyxml2::XMLElement *model = world->FirstChildElement("model");
-
-
-    while (model != NULL)
-    {
-        const char* model_name = model->Attribute("name");
-        if(strcmp(model_name, "ground_plane") == 0) std::cout << "ground_plane" << std::endl;
-        else{
-            std::cout << "model_name: " << model_name << std::endl;
-            // tinyxml2::XMLElement *link = model->FirstChildElement("link");
-
-            // while(link != NULL){
-            //     const char* link_name = link->Attribute("name");
-                
-            //     //test
-            //     std::cout << typeid(link_name).name() << std::endl;
-            //     std::cout << typeid("Wall_85").name() << std::endl;
-
-            //     if(strcmp(link_name, "Wall_85") == 0){
-            //         std::cout << "Wall_85" << std::endl;
-            //         std::cout << "link->Attribute(name): " << link->Attribute("name") << std::endl;
-            //         tinyxml2::XMLElement *visual = link->FirstChildElement("visual");
-            //         while(visual != NULL){
-            //             tinyxml2::XMLElement *geometry = visual->FirstChildElement("geometry");
-            //             tinyxml2::XMLElement *pose = visual->FirstChildElement("pose");
-            //             tinyxml2::XMLElement *box = geometry->FirstChildElement("box");
-            //             if(box != NULL){
-            //                 add_object_to_grid(box, pose);
-            //             }
-            //             visual = visual->NextSiblingElement("visual");
-            //         }
-            //     }
-
-                // tinyxml2::XMLElement *visual = link->FirstChildElement("visual");
-                // while(visual != NULL){
-                //     tinyxml2::XMLElement *geometry = visual->FirstChildElement("geometry");
-                //     tinyxml2::XMLElement *pose = visual->FirstChildElement("pose");
-                //     tinyxml2::XMLElement *box = geometry->FirstChildElement("box");
-                //     if(box != NULL){
-                //         add_object_to_grid(box, pose);
-                //     }
-                //     visual = visual->NextSiblingElement("visual");
-                // }
-                link = link->NextSiblingElement("link");
-            }
-
-        }
-
-        model = model->NextSiblingElement("model");
-        }
-    grid.header.frame_id = "map";
-    grid.header.stamp = ros::Time::now();
-    pub_grid.publish(grid);
-}
-#endif
 void Gazebo2Grid::run()
 {
     // Publish the grid
@@ -184,7 +133,7 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "gazebo2grid");
     Gazebo2Grid gazebo2grid;
-    while(ros::ok())
+    while (ros::ok())
     {
         gazebo2grid.run();
         ros::spinOnce();
