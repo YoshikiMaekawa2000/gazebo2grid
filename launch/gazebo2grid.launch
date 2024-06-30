@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+    <node name="gazebo2grid" pkg="gazebo2grid" type="gazebo2grid" output="screen"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find gazebo2grid)/rviz/gazebo2grid.rviz"/>
+</launch>
