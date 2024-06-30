@@ -16,9 +16,9 @@ Gazebo2Grid::Gazebo2Grid() : nh("~")
 void Gazebo2Grid::initialize_grid()
 {
     // Set the grid size
-    grid.info.width = 1000;
-    grid.info.height = 1000;
-    grid.info.resolution = 0.1;
+    grid.info.width = 2000;
+    grid.info.height = 2000;
+    grid.info.resolution = 0.05;
     grid.info.origin.position.x = -50;
     grid.info.origin.position.y = -50;
     grid.info.origin.position.z = 0;
